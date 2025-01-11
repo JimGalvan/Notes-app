@@ -104,7 +104,7 @@ class MainWindow(QMainWindow):
         # Add help text
         help_text = QLabel(
             "Controls: Alt+Left Click or Middle Click to pan • Ctrl+Scroll to zoom • "
-            "Drag notes to move them"
+            "Drag notes to move them • Drag note edges to resize"
         )
         help_text.setStyleSheet("color: #888888; font-size: 12px;")
         layout.addWidget(help_text)

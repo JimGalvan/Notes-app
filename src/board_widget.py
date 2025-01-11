@@ -13,8 +13,30 @@ class DraggableProxyWidget(QGraphicsProxyWidget):
         self.setFlag(self.GraphicsItemFlag.ItemIsSelectable)
         self.setFlag(self.GraphicsItemFlag.ItemSendsGeometryChanges)
         self.dragging = False
+        self.resizing = False
         self.last_pos = None
         self.drag_offset = None
+        self.resize_edge = None
+        self.min_size = (300, 200)  # Minimum size (width, height)
+        self.max_size = (800, 1000)  # Maximum size (width, height)
+        self.resize_margin = 10  # Pixels from edge where resize is active
+    
+    def isInResizeArea(self, pos):
+        rect = self.rect()
+        x, y = pos.x(), pos.y()
+        margin = self.resize_margin
+        
+        # Check if we're in any resize area
+        right_edge = abs(rect.right() - x) <= margin
+        bottom_edge = abs(rect.bottom() - y) <= margin
+        
+        if right_edge and bottom_edge:
+            return 'bottom-right'
+        elif right_edge:
+            return 'right'
+        elif bottom_edge:
+            return 'bottom'
+        return None
     
     def isInHeader(self, pos):
         widget = self.widget()
@@ -41,42 +63,82 @@ class DraggableProxyWidget(QGraphicsProxyWidget):
         return False
     
     def mousePressEvent(self, event):
-        if event.button() == Qt.MouseButton.LeftButton and self.isInHeader(event.pos()):
-            self.dragging = True
-            self.setCursor(Qt.CursorShape.ClosedHandCursor)
-            # Store the offset from the item's origin to the click position
-            self.drag_offset = event.pos()
-            event.accept()
-        else:
-            super().mousePressEvent(event)
+        if event.button() == Qt.MouseButton.LeftButton:
+            resize_area = self.isInResizeArea(event.pos())
+            if resize_area:
+                self.resizing = True
+                self.resize_edge = resize_area
+                self.last_pos = event.pos()
+                event.accept()
+                return
+            elif self.isInHeader(event.pos()):
+                self.dragging = True
+                self.setCursor(Qt.CursorShape.ClosedHandCursor)
+                self.drag_offset = event.pos()
+                event.accept()
+                return
+        super().mousePressEvent(event)
     
     def mouseReleaseEvent(self, event):
-        if self.dragging and event.button() == Qt.MouseButton.LeftButton:
-            self.dragging = False
-            self.drag_offset = None
-            self.unsetCursor()
-            event.accept()
+        if event.button() == Qt.MouseButton.LeftButton:
+            if self.resizing:
+                self.resizing = False
+                self.resize_edge = None
+                self.unsetCursor()
+                event.accept()
+            elif self.dragging:
+                self.dragging = False
+                self.drag_offset = None
+                self.unsetCursor()
+                event.accept()
+            else:
+                super().mouseReleaseEvent(event)
         else:
             super().mouseReleaseEvent(event)
     
     def mouseMoveEvent(self, event):
-        if self.dragging and self.drag_offset is not None:
-            # Calculate new position based on mouse position and initial offset
-            new_pos = self.mapToParent(event.pos() - self.drag_offset)
+        if self.resizing and self.last_pos is not None:
+            delta = event.pos() - self.last_pos
+            current_rect = self.geometry()
+            
+            # Calculate new dimensions
+            new_width = current_rect.width()
+            new_height = current_rect.height()
+            
+            if self.resize_edge in ['right', 'bottom-right']:
+                new_width = max(self.min_size[0], min(self.max_size[0], current_rect.width() + delta.x()))
+            
+            if self.resize_edge in ['bottom', 'bottom-right']:
+                new_height = max(self.min_size[1], min(self.max_size[1], current_rect.height() + delta.y()))
+            
+            # Create new geometry maintaining the top-left position
+            new_rect = QRectF(
+                current_rect.x(),
+                current_rect.y(),
+                new_width,
+                new_height
+            )
+            self.setGeometry(new_rect)
+            
+            self.last_pos = event.pos()
+            event.accept()
+        elif self.dragging and self.drag_offset is not None:
+            # Calculate new position in scene coordinates
+            new_pos = self.mapToScene(event.pos() - self.drag_offset)
             self.setPos(new_pos)
             event.accept()
         else:
             super().mouseMoveEvent(event)
     
-    def hoverEnterEvent(self, event):
-        if self.isInHeader(event.pos()):
-            self.setCursor(Qt.CursorShape.OpenHandCursor)
-        else:
-            self.unsetCursor()
-        super().hoverEnterEvent(event)
-    
     def hoverMoveEvent(self, event):
-        if self.isInHeader(event.pos()):
+        resize_area = self.isInResizeArea(event.pos())
+        if resize_area == 'bottom-right':
+            self.setCursor(Qt.CursorShape.SizeFDiagCursor)
+        elif resize_area == 'right':
+            self.setCursor(Qt.CursorShape.SizeHorCursor)
+        elif resize_area == 'bottom':
+            self.setCursor(Qt.CursorShape.SizeVerCursor)
+        elif self.isInHeader(event.pos()):
             self.setCursor(Qt.CursorShape.OpenHandCursor)
         else:
             self.unsetCursor()
