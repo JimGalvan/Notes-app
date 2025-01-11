@@ -7,25 +7,37 @@ class NoteOperations:
     def __init__(self, session: Session):
         self.session = session
     
-    def create_note(self, title: str, content: str, color: str = "#ffffff") -> Note:
+    def create_note(self, title: str, content: str, color: str = "#2d2d2d",
+                   position_x: float = None, position_y: float = None) -> Note:
         note = Note(
             title=title,
             content=content,
             color=color,
             created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow()
+            updated_at=datetime.utcnow(),
+            position_x=position_x,
+            position_y=position_y
         )
         self.session.add(note)
         self.session.commit()
         return note
     
-    def update_note(self, note_id: int, title: str, content: str, color: Optional[str] = None) -> Note:
+    def update_note(self, note_id: int, title: Optional[str] = None,
+                   content: Optional[str] = None, color: Optional[str] = None,
+                   position_x: Optional[float] = None,
+                   position_y: Optional[float] = None) -> Note:
         note = self.session.query(Note).get(note_id)
         if note:
-            note.title = title
-            note.content = content
-            if color:
+            if title is not None:
+                note.title = title
+            if content is not None:
+                note.content = content
+            if color is not None:
                 note.color = color
+            if position_x is not None:
+                note.position_x = position_x
+            if position_y is not None:
+                note.position_y = position_y
             note.updated_at = datetime.utcnow()
             self.session.commit()
         return note

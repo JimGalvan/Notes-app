@@ -1,12 +1,12 @@
 import sys
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
-                           QHBoxLayout, QPushButton, QLineEdit, QScrollArea, 
-                           QLabel, QSizePolicy, QMessageBox)
-from PyQt6.QtCore import Qt, QTimer
+                           QHBoxLayout, QPushButton, QLineEdit, QLabel, QMessageBox)
+from PyQt6.QtCore import Qt, QTimer, QPointF
 from PyQt6.QtGui import QIcon, QFont
 from database import Database
 from note_widget import NoteWidget
 from note_operations import NoteOperations
+from board_widget import BoardView
 from models import Note
 
 class MainWindow(QMainWindow):
@@ -18,6 +18,7 @@ class MainWindow(QMainWindow):
         self.search_timer = QTimer()
         self.search_timer.setSingleShot(True)
         self.search_timer.timeout.connect(self.perform_search)
+        self.note_proxies = {}  # Store note proxies for position tracking
         self.initUI()
         
     def initUI(self):
@@ -47,20 +48,16 @@ class MainWindow(QMainWindow):
         add_button.clicked.connect(self.add_note)
         toolbar.addWidget(add_button)
         
+        # Add zoom info
+        self.zoom_label = QLabel("Zoom: 100%")
+        self.zoom_label.setStyleSheet("color: #888888; margin-left: 10px;")
+        toolbar.addWidget(self.zoom_label)
+        
         layout.addLayout(toolbar)
         
-        # Create scrollable notes area
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        
-        self.notes_widget = QWidget()
-        self.notes_layout = QVBoxLayout(self.notes_widget)
-        self.notes_layout.setAlignment(Qt.AlignmentFlag.AlignTop)
-        self.notes_layout.setSpacing(10)
-        
-        scroll.setWidget(self.notes_widget)
-        layout.addWidget(scroll)
+        # Create board
+        self.board = BoardView()
+        layout.addWidget(self.board)
         
         # Set dark theme style
         self.setStyleSheet("""
@@ -93,25 +90,6 @@ class MainWindow(QMainWindow):
             QPushButton:pressed {
                 background-color: #006cbd;
             }
-            QScrollArea {
-                border: none;
-                background-color: transparent;
-            }
-            QScrollBar:vertical {
-                border: none;
-                background: #2d2d2d;
-                width: 10px;
-                margin: 0;
-            }
-            QScrollBar::handle:vertical {
-                background: #404040;
-                min-height: 20px;
-                border-radius: 5px;
-            }
-            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
-                border: none;
-                background: none;
-            }
             QMessageBox {
                 background-color: #1e1e1e;
                 color: #ffffff;
@@ -122,13 +100,20 @@ class MainWindow(QMainWindow):
         """)
         
         self.load_notes()
+        
+        # Add help text
+        help_text = QLabel(
+            "Controls: Alt+Left Click or Middle Click to pan • Ctrl+Scroll to zoom • "
+            "Drag notes to move them"
+        )
+        help_text.setStyleSheet("color: #888888; font-size: 12px;")
+        layout.addWidget(help_text)
     
     def load_notes(self):
         # Clear existing notes
-        while self.notes_layout.count():
-            child = self.notes_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
+        self.board.scene.clear()
+        self.board.draw_grid()
+        self.note_proxies.clear()
         
         # Load notes from database
         notes = self.note_ops.get_all_notes()
@@ -138,7 +123,7 @@ class MainWindow(QMainWindow):
     def add_note_widget(self, note: Note = None):
         if note is None:
             # Create new note in database
-            note = self.note_ops.create_note("", "", "#ffffff")
+            note = self.note_ops.create_note("", "", "#2d2d2d")
         
         # Create note widget
         note_widget = NoteWidget(
@@ -150,44 +135,70 @@ class MainWindow(QMainWindow):
         note_widget.updated.connect(self.update_note)
         note_widget.deleted.connect(self.delete_note)
         
-        # Add to layout
-        self.notes_layout.insertWidget(0, note_widget)
+        # Add to board
+        pos = QPointF(note.position_x, note.position_y) if note.position_x is not None else None
+        proxy = self.board.add_note(note_widget, pos)
+        self.note_proxies[note.id] = proxy
+        
+        # Apply current search highlighting if exists
+        if self.search_bar.text().strip():
+            note_widget.highlight_search(self.search_bar.text().strip())
+        
+        return note_widget
     
     def trigger_search(self):
-        # Reset timer
         self.search_timer.stop()
-        self.search_timer.start(300)  # Wait for 300ms before performing search
+        self.search_timer.start(300)
     
     def perform_search(self):
         query = self.search_bar.text().strip()
-        if query:
-            notes = self.note_ops.search_notes(query)
-        else:
-            notes = self.note_ops.get_all_notes()
         
-        # Update displayed notes
-        while self.notes_layout.count():
-            child = self.notes_layout.takeAt(0)
-            if child.widget():
-                child.widget().deleteLater()
+        # Store positions of existing notes
+        positions = {note_id: proxy.pos() for note_id, proxy in self.note_proxies.items()}
         
+        # Clear and reload notes
+        self.board.scene.clear()
+        self.board.draw_grid()
+        self.note_proxies.clear()
+        
+        # Get matching notes
+        notes = self.note_ops.search_notes(query) if query else self.note_ops.get_all_notes()
+        
+        # Add notes and highlight matches
         for note in notes:
-            self.add_note_widget(note)
+            note_widget = self.add_note_widget(note)
+            if query:
+                note_widget.highlight_search(query)
+            
+            # Restore position if it existed before
+            if note.id in positions:
+                self.note_proxies[note.id].setPos(positions[note.id])
     
     def add_note(self):
         self.add_note_widget()
     
     def update_note(self, note_id: int, title: str, content: str):
-        self.note_ops.update_note(note_id, title, content)
+        # Get the note's current position
+        if note_id in self.note_proxies:
+            pos = self.note_proxies[note_id].pos()
+            self.note_ops.update_note(note_id, title, content, position_x=pos.x(), position_y=pos.y())
+        else:
+            self.note_ops.update_note(note_id, title, content)
     
     def delete_note(self, note_id: int):
-        if self.note_ops.delete_note(note_id):
-            # Note widget will remove itself through the deleted signal
-            pass
-        else:
+        if note_id in self.note_proxies:
+            self.note_proxies[note_id].scene().removeItem(self.note_proxies[note_id])
+            del self.note_proxies[note_id]
+        
+        if not self.note_ops.delete_note(note_id):
             QMessageBox.warning(self, "Error", "Failed to delete note")
     
     def closeEvent(self, event):
+        # Save all note positions before closing
+        for note_id, proxy in self.note_proxies.items():
+            pos = proxy.pos()
+            self.note_ops.update_note(note_id, None, None, position_x=pos.x(), position_y=pos.y())
+        
         self.db.close()
         super().closeEvent(event)
 
