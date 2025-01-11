@@ -1,7 +1,7 @@
 import sys
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
                            QHBoxLayout, QPushButton, QLineEdit, QLabel, QMessageBox)
-from PyQt6.QtCore import Qt, QTimer, QPointF
+from PyQt6.QtCore import Qt, QTimer, QPointF, QRectF, QSizeF
 from PyQt6.QtGui import QIcon, QFont
 from database import Database
 from note_widget import NoteWidget
@@ -138,6 +138,12 @@ class MainWindow(QMainWindow):
         # Add to board
         pos = QPointF(note.position_x, note.position_y) if note.position_x is not None else None
         proxy = self.board.add_note(note_widget, pos)
+        
+        # Set size if it exists in the database
+        if hasattr(note, 'width') and hasattr(note, 'height'):
+            proxy.setGeometry(QRectF(proxy.geometry().topLeft(), 
+                                   QSizeF(note.width, note.height)))
+        
         self.note_proxies[note.id] = proxy
         
         # Apply current search highlighting if exists
@@ -194,11 +200,21 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Error", "Failed to delete note")
     
     def closeEvent(self, event):
-        # Save all note positions before closing
+        # Save all note positions and sizes before closing
         for note_id, proxy in self.note_proxies.items():
             pos = proxy.pos()
+            geometry = proxy.geometry()
             note_widget = proxy.widget()
-            self.note_ops.update_note(note_id, None, None, color=note_widget.color, position_x=pos.x(), position_y=pos.y())
+            self.note_ops.update_note(
+                note_id, 
+                None, 
+                None, 
+                color=note_widget.color,
+                position_x=pos.x(),
+                position_y=pos.y(),
+                width=int(geometry.width()),
+                height=int(geometry.height())
+            )
         
         self.db.close()
         super().closeEvent(event)

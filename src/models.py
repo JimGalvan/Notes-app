@@ -24,6 +24,8 @@ class Note(Base):
     is_archived = Column(Boolean, default=False)
     position_x = Column(Integer, nullable=True)  # For sticky note positioning
     position_y = Column(Integer, nullable=True)  # For sticky note positioning
+    width = Column(Integer, default=300)  # Default width
+    height = Column(Integer, default=200)  # Default height
     
     tags = relationship('Tag', secondary=note_tags, back_populates='notes')
 

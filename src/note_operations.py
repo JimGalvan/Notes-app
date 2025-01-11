@@ -8,7 +8,8 @@ class NoteOperations:
         self.session = session
     
     def create_note(self, title: str, content: str, color: str = "#2d2d2d",
-                   position_x: float = None, position_y: float = None) -> Note:
+                   position_x: float = None, position_y: float = None,
+                   width: int = 300, height: int = 200) -> Note:
         note = Note(
             title=title,
             content=content,
@@ -16,7 +17,9 @@ class NoteOperations:
             created_at=datetime.utcnow(),
             updated_at=datetime.utcnow(),
             position_x=position_x,
-            position_y=position_y
+            position_y=position_y,
+            width=width,
+            height=height
         )
         self.session.add(note)
         self.session.commit()
@@ -25,7 +28,9 @@ class NoteOperations:
     def update_note(self, note_id: int, title: Optional[str] = None,
                    content: Optional[str] = None, color: Optional[str] = None,
                    position_x: Optional[float] = None,
-                   position_y: Optional[float] = None) -> Note:
+                   position_y: Optional[float] = None,
+                   width: Optional[int] = None,
+                   height: Optional[int] = None) -> Note:
         note = self.session.query(Note).get(note_id)
         if note:
             if title is not None:
@@ -38,6 +43,10 @@ class NoteOperations:
                 note.position_x = position_x
             if position_y is not None:
                 note.position_y = position_y
+            if width is not None:
+                note.width = width
+            if height is not None:
+                note.height = height
             note.updated_at = datetime.utcnow()
             self.session.commit()
         return note
