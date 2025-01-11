@@ -14,6 +14,7 @@ class DraggableProxyWidget(QGraphicsProxyWidget):
         self.setFlag(self.GraphicsItemFlag.ItemSendsGeometryChanges)
         self.dragging = False
         self.last_pos = None
+        self.drag_offset = None
     
     def isInHeader(self, pos):
         widget = self.widget()
@@ -42,8 +43,9 @@ class DraggableProxyWidget(QGraphicsProxyWidget):
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton and self.isInHeader(event.pos()):
             self.dragging = True
-            self.last_pos = event.pos()
             self.setCursor(Qt.CursorShape.ClosedHandCursor)
+            # Store the offset from the item's origin to the click position
+            self.drag_offset = event.pos()
             event.accept()
         else:
             super().mousePressEvent(event)
@@ -51,18 +53,17 @@ class DraggableProxyWidget(QGraphicsProxyWidget):
     def mouseReleaseEvent(self, event):
         if self.dragging and event.button() == Qt.MouseButton.LeftButton:
             self.dragging = False
-            self.last_pos = None
+            self.drag_offset = None
             self.unsetCursor()
             event.accept()
         else:
             super().mouseReleaseEvent(event)
     
     def mouseMoveEvent(self, event):
-        if self.dragging and self.last_pos is not None:
-            delta = event.pos() - self.last_pos
-            new_pos = self.pos() + delta
+        if self.dragging and self.drag_offset is not None:
+            # Calculate new position based on mouse position and initial offset
+            new_pos = self.mapToParent(event.pos() - self.drag_offset)
             self.setPos(new_pos)
-            self.last_pos = event.pos()
             event.accept()
         else:
             super().mouseMoveEvent(event)
