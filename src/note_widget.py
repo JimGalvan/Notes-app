@@ -30,6 +30,58 @@ class SearchHighlighter(QSyntaxHighlighter):
             if index >= 0:
                 self.setFormat(index, len(self.search_text), self.highlight_format)
 
+class DraggableHeader(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMouseTracking(True)
+        self.dragging = False
+        
+        # Create layout
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        
+        # Create widgets but don't add them yet - will be added by NoteWidget
+        self.title_input = QLineEdit()
+        self.title_input.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
+        
+        self.menu_button = QPushButton("⋮")
+        self.menu_button.setFixedWidth(30)
+        self.menu_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+        layout.addWidget(self.title_input)
+        layout.addWidget(self.menu_button)
+    
+    def mousePressEvent(self, event):
+        widget_under_mouse = self.childAt(event.pos())
+        
+        if widget_under_mouse is None and event.button() == Qt.MouseButton.LeftButton:
+            self.dragging = True
+            self.setCursor(Qt.CursorShape.ClosedHandCursor)
+            event.ignore()
+        else:
+            event.accept()
+            super().mousePressEvent(event)
+    
+    def mouseReleaseEvent(self, event):
+        if self.dragging and event.button() == Qt.MouseButton.LeftButton:
+            self.dragging = False
+            self.setCursor(Qt.CursorShape.OpenHandCursor)
+            event.ignore()
+        else:
+            event.accept()
+            super().mouseReleaseEvent(event)
+    
+    def mouseMoveEvent(self, event):
+        widget_under_mouse = self.childAt(event.pos())
+        
+        if widget_under_mouse is None:
+            if not self.dragging:
+                self.setCursor(Qt.CursorShape.OpenHandCursor)
+            event.ignore()
+        else:
+            event.accept()
+            super().mouseMoveEvent(event)
+
 class NoteWidget(QWidget):
     deleted = pyqtSignal(int)  # Signal emitted when note is deleted
     updated = pyqtSignal(int, str, str)  # Signal emitted when note is updated
@@ -40,8 +92,6 @@ class NoteWidget(QWidget):
         self.search_text = ""
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
-        self.setMouseTracking(True)
-        logger.debug(f"Created note widget with id: {note_id}")
         self.initUI(title, content, color)
         
     def initUI(self, title, content, color):
@@ -55,28 +105,20 @@ class NoteWidget(QWidget):
         content_layout.setSpacing(5)
         content_layout.setContentsMargins(0, 0, 0, 0)
         
-        # Header layout
-        header = QHBoxLayout()
-        
-        # Title input
-        self.title_input = QLineEdit(title)
-        self.title_input.setPlaceholderText("Title")
-        self.title_input.textChanged.connect(self.note_modified)
-        header.addWidget(self.title_input)
-        
-        # Menu button
-        menu_button = QPushButton("⋮")
-        menu_button.setFixedWidth(30)
-        menu_button.clicked.connect(self.show_menu)
-        header.addWidget(menu_button)
-        
-        content_layout.addLayout(header)
+        # Header
+        self.header_container = DraggableHeader()
+        self.header_container.title_input.setText(title)
+        self.header_container.title_input.setPlaceholderText("Title")
+        self.header_container.title_input.textChanged.connect(self.note_modified)
+        self.header_container.menu_button.clicked.connect(self.show_menu)
+        content_layout.addWidget(self.header_container)
         
         # Content area
         self.content_edit = QTextEdit()
         self.content_edit.setPlaceholderText("Type your note here...")
         self.content_edit.setText(content)
         self.content_edit.textChanged.connect(self.note_modified)
+        self.content_edit.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
         self.highlighter = SearchHighlighter(self.content_edit.document())
         content_layout.addWidget(self.content_edit)
         
@@ -98,6 +140,8 @@ class NoteWidget(QWidget):
             QSizePolicy.Policy.Expanding,
             QSizePolicy.Policy.Minimum
         )
+        
+        logger.debug("Note widget UI initialized")
     
     def highlight_search(self, search_text):
         self.search_text = search_text
@@ -105,17 +149,17 @@ class NoteWidget(QWidget):
         
         # Highlight title matches
         if search_text:
-            title_text = self.title_input.text()
+            title_text = self.header_container.title_input.text()
             if search_text.lower() in title_text.lower():
-                self.title_input.setStyleSheet("""
+                self.header_container.title_input.setStyleSheet("""
                     background-color: #4d4d00;
                     border-radius: 3px;
                     padding: 2px 5px;
                 """)
             else:
-                self.title_input.setStyleSheet("")
+                self.header_container.title_input.setStyleSheet("")
         else:
-            self.title_input.setStyleSheet("")
+            self.header_container.title_input.setStyleSheet("")
     
     def show_menu(self):
         menu = QMenu(self)
@@ -209,7 +253,7 @@ class NoteWidget(QWidget):
             self.last_modified.setText(f"Last modified: {datetime.now().strftime('%H:%M:%S')}")
             self.updated.emit(
                 self.note_id,
-                self.title_input.text(),
+                self.header_container.title_input.text(),
                 self.content_edit.toPlainText()
             )
     
@@ -222,35 +266,8 @@ class NoteWidget(QWidget):
             # The actual widget deletion will be handled by the main window
             # through the proxy item removal
     
-    def mousePressEvent(self, event):
-        logger.debug(f"Note: Mouse press at {event.pos()}, buttons: {event.buttons()}")
-        if event.button() == Qt.MouseButton.LeftButton:
-            # Only ignore left button events for dragging
-            event.ignore()
-            logger.debug("Note: Ignored left mouse press for dragging")
-        else:
-            super().mousePressEvent(event)
-    
-    def mouseReleaseEvent(self, event):
-        logger.debug(f"Note: Mouse release at {event.pos()}")
-        if event.button() == Qt.MouseButton.LeftButton:
-            event.ignore()
-            logger.debug("Note: Ignored left mouse release for dragging")
-        else:
-            super().mouseReleaseEvent(event)
-    
-    def mouseMoveEvent(self, event):
-        logger.debug(f"Note: Mouse move at {event.pos()}")
-        # Always ignore move events to allow dragging
-        event.ignore()
-        logger.debug("Note: Ignored mouse move for dragging")
-    
     def enterEvent(self, event):
-        logger.debug("Note widget enter event")
-        self.setCursor(Qt.CursorShape.OpenHandCursor)
         super().enterEvent(event)
     
     def leaveEvent(self, event):
-        logger.debug("Note widget leave event")
-        self.setCursor(Qt.CursorShape.ArrowCursor)
         super().leaveEvent(event) 

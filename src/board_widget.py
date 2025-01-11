@@ -1,9 +1,8 @@
-from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QWidget, QGraphicsProxyWidget
-from PyQt6.QtCore import Qt, QPointF, QRectF
+from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QWidget, QGraphicsProxyWidget, QPushButton, QLineEdit, QTextEdit
+from PyQt6.QtCore import Qt, QPointF, QRectF, QPoint
 from PyQt6.QtGui import QPainter, QColor, QBrush, QPen
 import logging
 
-logging.basicConfig(level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
 class DraggableProxyWidget(QGraphicsProxyWidget):
@@ -15,10 +14,19 @@ class DraggableProxyWidget(QGraphicsProxyWidget):
         self.setFlag(self.GraphicsItemFlag.ItemSendsGeometryChanges)
         self.dragging = False
         self.last_pos = None
-        logger.debug("Created DraggableProxyWidget with movable flags")
     
     def mousePressEvent(self, event):
-        logger.debug(f"Proxy: Mouse press at {event.pos()}, buttons: {event.buttons()}")
+        # Get the widget under the mouse
+        widget = self.widget()
+        if widget:
+            local_pos = widget.mapFromParent(event.pos())
+            child = widget.childAt(QPoint(int(local_pos.x()), int(local_pos.y())))
+            
+            # If clicking on an interactive widget, let it handle the event
+            if child and (isinstance(child, (QPushButton, QLineEdit, QTextEdit)) or 
+                         child.cursor().shape() != Qt.CursorShape.ArrowCursor):
+                return super().mousePressEvent(event)
+        
         if event.button() == Qt.MouseButton.LeftButton:
             self.dragging = True
             self.last_pos = event.pos()
@@ -28,20 +36,17 @@ class DraggableProxyWidget(QGraphicsProxyWidget):
             super().mousePressEvent(event)
     
     def mouseReleaseEvent(self, event):
-        logger.debug(f"Proxy: Mouse release at {event.pos()}")
-        if event.button() == Qt.MouseButton.LeftButton:
+        if self.dragging and event.button() == Qt.MouseButton.LeftButton:
             self.dragging = False
             self.last_pos = None
-            self.setCursor(Qt.CursorShape.OpenHandCursor)
+            self.unsetCursor()
             event.accept()
         else:
             super().mouseReleaseEvent(event)
     
     def mouseMoveEvent(self, event):
-        logger.debug(f"Proxy: Mouse move at {event.pos()}, dragging: {self.dragging}")
         if self.dragging and self.last_pos is not None:
             delta = event.pos() - self.last_pos
-            logger.debug(f"Proxy: Moving by delta {delta}")
             new_pos = self.pos() + delta
             self.setPos(new_pos)
             event.accept()
@@ -49,13 +54,34 @@ class DraggableProxyWidget(QGraphicsProxyWidget):
             super().mouseMoveEvent(event)
     
     def hoverEnterEvent(self, event):
-        logger.debug("Proxy: Hover enter")
-        self.setCursor(Qt.CursorShape.OpenHandCursor)
+        # Get the widget under the mouse
+        widget = self.widget()
+        if widget:
+            local_pos = widget.mapFromParent(event.pos())
+            child = widget.childAt(QPoint(int(local_pos.x()), int(local_pos.y())))
+            
+            # Don't show hand cursor over interactive elements
+            if not child or (not isinstance(child, (QPushButton, QLineEdit, QTextEdit)) and 
+                           child.cursor().shape() == Qt.CursorShape.ArrowCursor):
+                self.setCursor(Qt.CursorShape.OpenHandCursor)
         super().hoverEnterEvent(event)
     
+    def hoverMoveEvent(self, event):
+        # Update cursor based on what's under the mouse
+        widget = self.widget()
+        if widget:
+            local_pos = widget.mapFromParent(event.pos())
+            child = widget.childAt(QPoint(int(local_pos.x()), int(local_pos.y())))
+            
+            if not child or (not isinstance(child, (QPushButton, QLineEdit, QTextEdit)) and 
+                           child.cursor().shape() == Qt.CursorShape.ArrowCursor):
+                self.setCursor(Qt.CursorShape.OpenHandCursor)
+            else:
+                self.unsetCursor()
+        super().hoverMoveEvent(event)
+    
     def hoverLeaveEvent(self, event):
-        logger.debug("Proxy: Hover leave")
-        self.setCursor(Qt.CursorShape.ArrowCursor)
+        self.unsetCursor()
         super().hoverLeaveEvent(event)
 
 class BoardView(QGraphicsView):
@@ -90,7 +116,6 @@ class BoardView(QGraphicsView):
         
         # Draw grid
         self.draw_grid()
-        logger.debug("BoardView initialized")
     
     def draw_grid(self):
         # Draw major grid lines
@@ -115,9 +140,7 @@ class BoardView(QGraphicsView):
             self.scene.addLine(rect.left(), y, rect.right(), y, pen_major)
     
     def mousePressEvent(self, event):
-        logger.debug(f"Board: Mouse press at {event.pos()}, buttons: {event.buttons()}")
         item = self.itemAt(event.pos())
-        logger.debug(f"Board: Item under cursor: {item}")
         
         if event.button() == Qt.MouseButton.MiddleButton or \
            (event.button() == Qt.MouseButton.LeftButton and 
@@ -130,7 +153,6 @@ class BoardView(QGraphicsView):
             super().mousePressEvent(event)
     
     def mouseReleaseEvent(self, event):
-        logger.debug(f"Board: Mouse release at {event.pos()}")
         if self.is_panning:
             self.is_panning = False
             self.setCursor(Qt.CursorShape.ArrowCursor)
@@ -139,7 +161,6 @@ class BoardView(QGraphicsView):
             super().mouseReleaseEvent(event)
     
     def mouseMoveEvent(self, event):
-        logger.debug(f"Board: Mouse move at {event.pos()}")
         if self.is_panning and self.last_mouse_pos is not None:
             delta = event.pos() - self.last_mouse_pos
             self.horizontalScrollBar().setValue(
@@ -180,5 +201,4 @@ class BoardView(QGraphicsView):
         proxy.setWidget(note_widget)
         self.scene.addItem(proxy)
         proxy.setPos(pos)
-        logger.debug(f"Added note with proxy at position: {pos}")
         return proxy 
