@@ -27,15 +27,31 @@ class DraggableProxyWidget(QGraphicsProxyWidget):
         margin = self.resize_margin
         
         # Check if we're in any resize area
+        left_edge = abs(rect.left() - x) <= margin
         right_edge = abs(rect.right() - x) <= margin
+        top_edge = abs(rect.top() - y) <= margin
         bottom_edge = abs(rect.bottom() - y) <= margin
         
+        # Check corners first
+        if left_edge and top_edge:
+            return 'top-left'
+        if right_edge and top_edge:
+            return 'top-right'
+        if left_edge and bottom_edge:
+            return 'bottom-left'
         if right_edge and bottom_edge:
             return 'bottom-right'
-        elif right_edge:
+        
+        # Then check edges
+        if left_edge:
+            return 'left'
+        if right_edge:
             return 'right'
-        elif bottom_edge:
+        if top_edge:
+            return 'top'
+        if bottom_edge:
             return 'bottom'
+        
         return None
     
     def isInHeader(self, pos):
@@ -100,30 +116,40 @@ class DraggableProxyWidget(QGraphicsProxyWidget):
         if self.resizing and self.last_pos is not None:
             delta = event.pos() - self.last_pos
             current_rect = self.geometry()
+            new_rect = QRectF(current_rect)
             
-            # Calculate new dimensions
-            new_width = current_rect.width()
-            new_height = current_rect.height()
+            # Store original values
+            original_left = current_rect.left()
+            original_top = current_rect.top()
+            original_width = current_rect.width()
+            original_height = current_rect.height()
             
-            if self.resize_edge in ['right', 'bottom-right']:
-                new_width = max(self.min_size[0], min(self.max_size[0], current_rect.width() + delta.x()))
+            # Handle horizontal resizing
+            if 'left' in self.resize_edge:
+                new_width = original_width - delta.x()
+                if self.min_size[0] <= new_width <= self.max_size[0]:
+                    new_rect.setLeft(original_left + delta.x())
+                    new_rect.setWidth(new_width)
+            elif 'right' in self.resize_edge:
+                new_width = original_width + delta.x()
+                if self.min_size[0] <= new_width <= self.max_size[0]:
+                    new_rect.setWidth(new_width)
             
-            if self.resize_edge in ['bottom', 'bottom-right']:
-                new_height = max(self.min_size[1], min(self.max_size[1], current_rect.height() + delta.y()))
+            # Handle vertical resizing
+            if 'top' in self.resize_edge:
+                new_height = original_height - delta.y()
+                if self.min_size[1] <= new_height <= self.max_size[1]:
+                    new_rect.setTop(original_top + delta.y())
+                    new_rect.setHeight(new_height)
+            elif 'bottom' in self.resize_edge:
+                new_height = original_height + delta.y()
+                if self.min_size[1] <= new_height <= self.max_size[1]:
+                    new_rect.setHeight(new_height)
             
-            # Create new geometry maintaining the top-left position
-            new_rect = QRectF(
-                current_rect.x(),
-                current_rect.y(),
-                new_width,
-                new_height
-            )
             self.setGeometry(new_rect)
-            
             self.last_pos = event.pos()
             event.accept()
         elif self.dragging and self.drag_offset is not None:
-            # Calculate new position in scene coordinates
             new_pos = self.mapToScene(event.pos() - self.drag_offset)
             self.setPos(new_pos)
             event.accept()
@@ -132,11 +158,13 @@ class DraggableProxyWidget(QGraphicsProxyWidget):
     
     def hoverMoveEvent(self, event):
         resize_area = self.isInResizeArea(event.pos())
-        if resize_area == 'bottom-right':
+        if resize_area in ['top-left', 'bottom-right']:
             self.setCursor(Qt.CursorShape.SizeFDiagCursor)
-        elif resize_area == 'right':
+        elif resize_area in ['top-right', 'bottom-left']:
+            self.setCursor(Qt.CursorShape.SizeBDiagCursor)
+        elif resize_area in ['left', 'right']:
             self.setCursor(Qt.CursorShape.SizeHorCursor)
-        elif resize_area == 'bottom':
+        elif resize_area in ['top', 'bottom']:
             self.setCursor(Qt.CursorShape.SizeVerCursor)
         elif self.isInHeader(event.pos()):
             self.setCursor(Qt.CursorShape.OpenHandCursor)
