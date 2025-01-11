@@ -48,7 +48,7 @@ class DraggableHeader(QWidget):
 
 class NoteWidget(QWidget):
     deleted = pyqtSignal(int)  # Signal emitted when note is deleted
-    updated = pyqtSignal(int, str, str)  # Signal emitted when note is updated
+    updated = pyqtSignal(int, str, str, str)  # Signal emitted when note is updated (id, title, content, color)
 
     def __init__(self, note_id=None, title="", content="", color="#2d2d2d", parent=None):
         super().__init__(parent)
@@ -190,7 +190,8 @@ class NoteWidget(QWidget):
             self.updated.emit(
                 self.note_id,
                 "",  # Empty title since we removed it
-                self.content_edit.toPlainText()
+                self.content_edit.toPlainText(),
+                self.color
             )
     
     def delete_note(self):

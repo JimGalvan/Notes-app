@@ -177,13 +177,13 @@ class MainWindow(QMainWindow):
     def add_note(self):
         self.add_note_widget()
     
-    def update_note(self, note_id: int, title: str, content: str):
+    def update_note(self, note_id: int, title: str, content: str, color: str):
         # Get the note's current position
         if note_id in self.note_proxies:
             pos = self.note_proxies[note_id].pos()
-            self.note_ops.update_note(note_id, title, content, position_x=pos.x(), position_y=pos.y())
+            self.note_ops.update_note(note_id, title, content, color=color, position_x=pos.x(), position_y=pos.y())
         else:
-            self.note_ops.update_note(note_id, title, content)
+            self.note_ops.update_note(note_id, title, content, color=color)
     
     def delete_note(self, note_id: int):
         if note_id in self.note_proxies:
@@ -197,7 +197,8 @@ class MainWindow(QMainWindow):
         # Save all note positions before closing
         for note_id, proxy in self.note_proxies.items():
             pos = proxy.pos()
-            self.note_ops.update_note(note_id, None, None, position_x=pos.x(), position_y=pos.y())
+            note_widget = proxy.widget()
+            self.note_ops.update_note(note_id, None, None, color=note_widget.color, position_x=pos.x(), position_y=pos.y())
         
         self.db.close()
         super().closeEvent(event)
