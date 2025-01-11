@@ -127,24 +127,25 @@ class MainWindow(QMainWindow):
                 color: #ffffff;
             }
             #toolbarContainer {
-                background-color: rgba(45, 45, 45, 0.7);
+                background-color: #2d2d2d;
+                border: 1px solid #333333;
                 border-radius: 10px;
                 margin: 10px;
             }
             QLineEdit {
                 padding: 8px;
-                border: 1px solid rgba(51, 51, 51, 0.8);
+                border: 1px solid #333333;
                 border-radius: 5px;
-                background-color: rgba(45, 45, 45, 0.8);
+                background-color: #252525;
                 color: #ffffff;
                 font-size: 14px;
             }
             QLineEdit:focus {
                 border: 1px solid #0078d4;
-                background-color: rgba(45, 45, 45, 0.95);
+                background-color: #2d2d2d;
             }
             QPushButton {
-                background-color: rgba(0, 120, 212, 0.8);
+                background-color: #0078d4;
                 color: white;
                 border: none;
                 border-radius: 5px;
@@ -152,10 +153,13 @@ class MainWindow(QMainWindow):
                 font-size: 14px;
             }
             QPushButton:hover {
-                background-color: rgba(16, 132, 216, 0.9);
+                background-color: #1084d8;
             }
             QPushButton:pressed {
-                background-color: rgba(0, 108, 189, 0.95);
+                background-color: #006cbd;
+            }
+            QLabel {
+                color: #cccccc;
             }
             QMessageBox {
                 background-color: #1e1e1e;
