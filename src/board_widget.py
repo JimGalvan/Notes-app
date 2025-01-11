@@ -2,6 +2,7 @@ from PyQt6.QtWidgets import QGraphicsView, QGraphicsScene, QWidget, QGraphicsPro
 from PyQt6.QtCore import Qt, QPointF, QRectF, QPoint
 from PyQt6.QtGui import QPainter, QColor, QBrush, QPen
 import logging
+from PyQt6.QtCore import pyqtSignal
 
 logger = logging.getLogger(__name__)
 
@@ -177,6 +178,8 @@ class DraggableProxyWidget(QGraphicsProxyWidget):
         super().hoverLeaveEvent(event)
 
 class BoardView(QGraphicsView):
+    zoom_changed = pyqtSignal(float)  # Signal to emit when zoom changes
+    
     def __init__(self, parent=None):
         super().__init__(parent)
         self.scene = QGraphicsScene(self)
@@ -237,9 +240,8 @@ class BoardView(QGraphicsView):
         self.scale(reset_factor, reset_factor)
         self.zoom_factor = 1.0
         
-        # Update zoom label in main window if it exists
-        if hasattr(self.parent(), 'zoom_label'):
-            self.parent().zoom_label.setText("Zoom: 100%")
+        # Emit the zoom changed signal
+        self.zoom_changed.emit(self.zoom_factor)
     
     def mousePressEvent(self, event):
         item = self.itemAt(event.pos())
@@ -296,11 +298,9 @@ class BoardView(QGraphicsView):
                 self.zoom_factor = new_zoom
                 self.scale(zoom_factor, zoom_factor)
                 
-                # Update zoom label in main window if it exists
-                if hasattr(self.parent(), 'zoom_label'):
-                    zoom_percentage = int(self.zoom_factor * 100)
-                    self.parent().zoom_label.setText(f"Zoom: {zoom_percentage}%")
-                    
+                # Emit the zoom changed signal
+                self.zoom_changed.emit(self.zoom_factor)
+                
             event.accept()
         else:
             # Regular scroll

@@ -41,6 +41,10 @@ class MainWindow(QMainWindow):
         toolbar_container.setObjectName("toolbarContainer")
         toolbar_container.setLayout(toolbar)
         
+        # Left side container
+        left_container = QHBoxLayout()
+        left_container.setSpacing(10)
+        
         # Search container
         search_container = QHBoxLayout()
         search_container.setSpacing(0)
@@ -74,30 +78,19 @@ class MainWindow(QMainWindow):
         """)
         search_container.addWidget(clear_search_button)
         
-        toolbar.addLayout(search_container, stretch=1)
+        left_container.addLayout(search_container, stretch=1)
         
         # Add note button
         add_button = QPushButton('New Note')
         add_button.setMinimumHeight(40)
         add_button.clicked.connect(self.add_note)
-        toolbar.addWidget(add_button)
-        
-        # Add zoom controls
-        zoom_container = QHBoxLayout()
-        zoom_container.setSpacing(5)
+        left_container.addWidget(add_button)
         
         # Reset zoom button
         reset_zoom_button = QPushButton("Reset Zoom")
         reset_zoom_button.setMinimumHeight(40)
         reset_zoom_button.clicked.connect(self.reset_zoom)
-        zoom_container.addWidget(reset_zoom_button)
-        
-        # Zoom label
-        self.zoom_label = QLabel("Zoom: 100%")
-        self.zoom_label.setStyleSheet("color: #888888; margin-left: 10px;")
-        zoom_container.addWidget(self.zoom_label)
-        
-        toolbar.addLayout(zoom_container)
+        left_container.addWidget(reset_zoom_button)
         
         # Add organize buttons
         organize_container = QHBoxLayout()
@@ -115,13 +108,33 @@ class MainWindow(QMainWindow):
         arrange_button.clicked.connect(self.arrange_notes)
         organize_container.addWidget(arrange_button)
         
-        toolbar.addLayout(organize_container)
+        left_container.addLayout(organize_container)
+        
+        # Add left container to toolbar
+        toolbar.addLayout(left_container, stretch=1)
+        
+        # Zoom label (right-aligned)
+        self.zoom_label = QLabel("Zoom: 100%")
+        self.zoom_label.setStyleSheet("""
+            color: #888888;
+            background-color: #2d2d2d;
+            border: 1px solid #404040;
+            border-radius: 5px;
+            padding: 5px 15px;
+            margin-left: 20px;
+        """)
+        self.zoom_label.setFixedWidth(120)
+        self.zoom_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        toolbar.addWidget(self.zoom_label)
         
         layout.addWidget(toolbar_container)
         
         # Create board
         self.board = BoardView()
         layout.addWidget(self.board)
+        
+        # Connect zoom signal
+        self.board.zoom_changed.connect(self.update_zoom_label)
         
         # Set dark theme style
         self.setStyleSheet("""
@@ -382,6 +395,11 @@ class MainWindow(QMainWindow):
             if col >= grid_cols:
                 col = 0
                 row += 1
+    
+    def update_zoom_label(self, zoom_factor: float):
+        """Update the zoom label with the current zoom percentage."""
+        zoom_percentage = int(zoom_factor * 100)
+        self.zoom_label.setText(f"Zoom: {zoom_percentage}%")
 
 def main():
     app = QApplication(sys.argv)
