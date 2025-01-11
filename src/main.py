@@ -59,14 +59,17 @@ class MainWindow(QMainWindow):
         clear_search_button.clicked.connect(lambda: self.search_bar.setText(""))
         clear_search_button.setStyleSheet("""
             QPushButton {
-                background-color: transparent;
+                background-color: #2d2d2d;
                 border-top-left-radius: 0;
                 border-bottom-left-radius: 0;
                 color: #888888;
             }
             QPushButton:hover {
-                background-color: rgba(255, 255, 255, 0.1);
+                background-color: #3d3d3d;
                 color: #ffffff;
+            }
+            QPushButton:pressed {
+                background-color: #333333;
             }
         """)
         search_container.addWidget(clear_search_button)
@@ -127,22 +130,19 @@ class MainWindow(QMainWindow):
                 color: #ffffff;
             }
             #toolbarContainer {
-                background-color: #2d2d2d;
-                border: 1px solid #333333;
-                border-radius: 10px;
+                background-color: #1e1e1e;
                 margin: 10px;
             }
             QLineEdit {
                 padding: 8px;
                 border: 1px solid #333333;
                 border-radius: 5px;
-                background-color: #252525;
+                background-color: #2d2d2d;
                 color: #ffffff;
                 font-size: 14px;
             }
             QLineEdit:focus {
                 border: 1px solid #0078d4;
-                background-color: #2d2d2d;
             }
             QPushButton {
                 background-color: #0078d4;
@@ -159,7 +159,7 @@ class MainWindow(QMainWindow):
                 background-color: #006cbd;
             }
             QLabel {
-                color: #cccccc;
+                color: #888888;
             }
             QMessageBox {
                 background-color: #1e1e1e;
@@ -175,7 +175,9 @@ class MainWindow(QMainWindow):
         # Add help text
         help_text = QLabel(
             "Controls: Alt+Left Click or Middle Click to pan • Ctrl+Scroll to zoom • "
-            "Drag notes to move them • Drag note edges to resize"
+            "Drag notes to move them • Drag note edges to resize • "
+            "Ctrl++ / Ctrl+- to adjust note text size • "
+            "Ctrl+R to insert separator"
         )
         help_text.setStyleSheet("color: #888888; font-size: 12px;")
         layout.addWidget(help_text)

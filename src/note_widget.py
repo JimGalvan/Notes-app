@@ -1,7 +1,8 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QPushButton, 
                            QTextEdit, QLineEdit, QLabel, QMenu, QSizePolicy)
 from PyQt6.QtCore import Qt, pyqtSignal
-from PyQt6.QtGui import QAction, QColor, QPalette, QTextCharFormat, QSyntaxHighlighter
+from PyQt6.QtGui import (QAction, QColor, QPalette, QTextCharFormat, QSyntaxHighlighter, 
+                        QKeySequence, QShortcut)
 from datetime import datetime
 import logging
 
@@ -85,6 +86,22 @@ class NoteWidget(QWidget):
         self.content_edit.textChanged.connect(self.note_modified)
         self.content_edit.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
         self.highlighter = SearchHighlighter(self.content_edit.document())
+        
+        # Set up keyboard shortcuts
+        self.increase_size_shortcut = QShortcut(QKeySequence("Ctrl++"), self.content_edit)
+        self.increase_size_shortcut.activated.connect(self.increase_text_size)
+        
+        self.decrease_size_shortcut = QShortcut(QKeySequence("Ctrl+-"), self.content_edit)
+        self.decrease_size_shortcut.activated.connect(self.decrease_text_size)
+        
+        # Alternative shortcuts for numpad
+        self.increase_size_shortcut_numpad = QShortcut(QKeySequence("Ctrl+="), self.content_edit)
+        self.increase_size_shortcut_numpad.activated.connect(self.increase_text_size)
+        
+        # Add separator shortcut
+        self.add_separator_shortcut = QShortcut(QKeySequence("Ctrl+R"), self.content_edit)
+        self.add_separator_shortcut.activated.connect(self.insert_separator)
+        
         content_layout.addWidget(self.content_edit)
         
         # Footer with metadata
@@ -239,4 +256,34 @@ class NoteWidget(QWidget):
         super().enterEvent(event)
     
     def leaveEvent(self, event):
-        super().leaveEvent(event) 
+        super().leaveEvent(event)
+    
+    def increase_text_size(self):
+        self.update_text_size(min(32, self.text_size + 2))
+    
+    def decrease_text_size(self):
+        self.update_text_size(max(8, self.text_size - 2)) 
+    
+    def insert_separator(self):
+        """Insert a visual separator at the current cursor position."""
+        separator = "\n─" * 30 + "\n"  # 30 em dashes
+        cursor = self.content_edit.textCursor()
+        
+        # If there's selected text, replace it
+        if cursor.hasSelection():
+            cursor.insertText(separator)
+        else:
+            # If we're at the start of a line, don't add extra newline
+            block_text = cursor.block().text()
+            position_in_block = cursor.positionInBlock()
+            
+            if position_in_block == 0 and not block_text:  # Empty line
+                separator = separator.lstrip()
+            elif position_in_block == len(block_text):  # End of line
+                separator = separator
+            else:  # Middle of line
+                separator = "\n" + separator
+            
+            cursor.insertText(separator)
+        
+        self.content_edit.setFocus()  # Keep focus on the text edit 
