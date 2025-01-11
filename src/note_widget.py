@@ -34,53 +34,17 @@ class DraggableHeader(QWidget):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setMouseTracking(True)
-        self.dragging = False
         
         # Create layout
         layout = QHBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.addStretch()  # Push menu button to the right
         
-        # Create widgets but don't add them yet - will be added by NoteWidget
-        self.title_input = QLineEdit()
-        self.title_input.setFocusPolicy(Qt.FocusPolicy.ClickFocus)
-        
+        # Menu button
         self.menu_button = QPushButton("⋮")
         self.menu_button.setFixedWidth(30)
         self.menu_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        
-        layout.addWidget(self.title_input)
         layout.addWidget(self.menu_button)
-    
-    def mousePressEvent(self, event):
-        widget_under_mouse = self.childAt(event.pos())
-        
-        if widget_under_mouse is None and event.button() == Qt.MouseButton.LeftButton:
-            self.dragging = True
-            self.setCursor(Qt.CursorShape.ClosedHandCursor)
-            event.ignore()
-        else:
-            event.accept()
-            super().mousePressEvent(event)
-    
-    def mouseReleaseEvent(self, event):
-        if self.dragging and event.button() == Qt.MouseButton.LeftButton:
-            self.dragging = False
-            self.setCursor(Qt.CursorShape.OpenHandCursor)
-            event.ignore()
-        else:
-            event.accept()
-            super().mouseReleaseEvent(event)
-    
-    def mouseMoveEvent(self, event):
-        widget_under_mouse = self.childAt(event.pos())
-        
-        if widget_under_mouse is None:
-            if not self.dragging:
-                self.setCursor(Qt.CursorShape.OpenHandCursor)
-            event.ignore()
-        else:
-            event.accept()
-            super().mouseMoveEvent(event)
 
 class NoteWidget(QWidget):
     deleted = pyqtSignal(int)  # Signal emitted when note is deleted
@@ -107,9 +71,6 @@ class NoteWidget(QWidget):
         
         # Header
         self.header_container = DraggableHeader()
-        self.header_container.title_input.setText(title)
-        self.header_container.title_input.setPlaceholderText("Title")
-        self.header_container.title_input.textChanged.connect(self.note_modified)
         self.header_container.menu_button.clicked.connect(self.show_menu)
         content_layout.addWidget(self.header_container)
         
@@ -146,20 +107,6 @@ class NoteWidget(QWidget):
     def highlight_search(self, search_text):
         self.search_text = search_text
         self.highlighter.set_search_text(search_text)
-        
-        # Highlight title matches
-        if search_text:
-            title_text = self.header_container.title_input.text()
-            if search_text.lower() in title_text.lower():
-                self.header_container.title_input.setStyleSheet("""
-                    background-color: #4d4d00;
-                    border-radius: 3px;
-                    padding: 2px 5px;
-                """)
-            else:
-                self.header_container.title_input.setStyleSheet("")
-        else:
-            self.header_container.title_input.setStyleSheet("")
     
     def show_menu(self):
         menu = QMenu(self)
@@ -197,17 +144,6 @@ class NoteWidget(QWidget):
                 background-color: {color};
                 border-radius: 5px;
                 border: 1px solid #333333;
-            }}
-            QLineEdit {{
-                border: none;
-                background: transparent;
-                color: #ffffff;
-                font-size: 16px;
-                font-weight: bold;
-                padding: 5px;
-            }}
-            QLineEdit::placeholder {{
-                color: #888888;
             }}
             QTextEdit {{
                 border: none;
@@ -253,7 +189,7 @@ class NoteWidget(QWidget):
             self.last_modified.setText(f"Last modified: {datetime.now().strftime('%H:%M:%S')}")
             self.updated.emit(
                 self.note_id,
-                self.header_container.title_input.text(),
+                "",  # Empty title since we removed it
                 self.content_edit.toPlainText()
             )
     

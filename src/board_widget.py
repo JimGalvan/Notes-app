@@ -15,19 +15,32 @@ class DraggableProxyWidget(QGraphicsProxyWidget):
         self.dragging = False
         self.last_pos = None
     
-    def mousePressEvent(self, event):
-        # Get the widget under the mouse
+    def isInHeader(self, pos):
         widget = self.widget()
-        if widget:
-            local_pos = widget.mapFromParent(event.pos())
-            child = widget.childAt(QPoint(int(local_pos.x()), int(local_pos.y())))
-            
-            # If clicking on an interactive widget, let it handle the event
-            if child and (isinstance(child, (QPushButton, QLineEdit, QTextEdit)) or 
-                         child.cursor().shape() != Qt.CursorShape.ArrowCursor):
-                return super().mousePressEvent(event)
+        if not widget:
+            return False
         
-        if event.button() == Qt.MouseButton.LeftButton:
+        # Get the header widget
+        header = widget.header_container
+        if not header:
+            return False
+        
+        # Convert to global coordinates
+        scene_pos = self.mapToScene(pos)
+        view = self.scene().views()[0]
+        global_pos = view.mapToGlobal(view.mapFromScene(scene_pos))
+        
+        # Convert to header coordinates
+        header_pos = header.mapFromGlobal(global_pos)
+        
+        # Check if we're in the header and not over a child widget
+        if header.rect().contains(header_pos):
+            child = header.childAt(header_pos)
+            return child is None
+        return False
+    
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton and self.isInHeader(event.pos()):
             self.dragging = True
             self.last_pos = event.pos()
             self.setCursor(Qt.CursorShape.ClosedHandCursor)
@@ -49,35 +62,23 @@ class DraggableProxyWidget(QGraphicsProxyWidget):
             delta = event.pos() - self.last_pos
             new_pos = self.pos() + delta
             self.setPos(new_pos)
+            self.last_pos = event.pos()
             event.accept()
         else:
             super().mouseMoveEvent(event)
     
     def hoverEnterEvent(self, event):
-        # Get the widget under the mouse
-        widget = self.widget()
-        if widget:
-            local_pos = widget.mapFromParent(event.pos())
-            child = widget.childAt(QPoint(int(local_pos.x()), int(local_pos.y())))
-            
-            # Don't show hand cursor over interactive elements
-            if not child or (not isinstance(child, (QPushButton, QLineEdit, QTextEdit)) and 
-                           child.cursor().shape() == Qt.CursorShape.ArrowCursor):
-                self.setCursor(Qt.CursorShape.OpenHandCursor)
+        if self.isInHeader(event.pos()):
+            self.setCursor(Qt.CursorShape.OpenHandCursor)
+        else:
+            self.unsetCursor()
         super().hoverEnterEvent(event)
     
     def hoverMoveEvent(self, event):
-        # Update cursor based on what's under the mouse
-        widget = self.widget()
-        if widget:
-            local_pos = widget.mapFromParent(event.pos())
-            child = widget.childAt(QPoint(int(local_pos.x()), int(local_pos.y())))
-            
-            if not child or (not isinstance(child, (QPushButton, QLineEdit, QTextEdit)) and 
-                           child.cursor().shape() == Qt.CursorShape.ArrowCursor):
-                self.setCursor(Qt.CursorShape.OpenHandCursor)
-            else:
-                self.unsetCursor()
+        if self.isInHeader(event.pos()):
+            self.setCursor(Qt.CursorShape.OpenHandCursor)
+        else:
+            self.unsetCursor()
         super().hoverMoveEvent(event)
     
     def hoverLeaveEvent(self, event):
