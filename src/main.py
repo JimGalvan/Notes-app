@@ -145,18 +145,21 @@ class MainWindow(QMainWindow):
                 border: 1px solid #0078d4;
             }
             QPushButton {
-                background-color: #0078d4;
-                color: white;
-                border: none;
+                background-color: #2d2d2d;
+                color: #cccccc;
+                border: 1px solid #404040;
                 border-radius: 5px;
                 padding: 8px 15px;
                 font-size: 14px;
             }
             QPushButton:hover {
-                background-color: #1084d8;
+                background-color: #353535;
+                border-color: #505050;
+                color: #ffffff;
             }
             QPushButton:pressed {
-                background-color: #006cbd;
+                background-color: #404040;
+                border-color: #606060;
             }
             QLabel {
                 color: #888888;
