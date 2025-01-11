@@ -197,7 +197,7 @@ class BoardView(QGraphicsView):
         
         # Initialize view properties
         self.zoom_factor = 1.0
-        self.min_zoom = 0.1
+        self.min_zoom = 0.3  # Increased minimum zoom to ensure notes are still grabbable
         self.max_zoom = 3.0
         self.is_panning = False
         self.last_mouse_pos = None
@@ -231,18 +231,39 @@ class BoardView(QGraphicsView):
         for y in range(int(rect.top()), int(rect.bottom()), major_grid_size):
             self.scene.addLine(rect.left(), y, rect.right(), y, pen_major)
     
+    def reset_zoom(self):
+        # Calculate the zoom factor needed to return to 1.0
+        reset_factor = 1.0 / self.zoom_factor
+        self.scale(reset_factor, reset_factor)
+        self.zoom_factor = 1.0
+        
+        # Update zoom label in main window if it exists
+        if hasattr(self.parent(), 'zoom_label'):
+            self.parent().zoom_label.setText("Zoom: 100%")
+    
     def mousePressEvent(self, event):
         item = self.itemAt(event.pos())
         
-        if event.button() == Qt.MouseButton.MiddleButton or \
-           (event.button() == Qt.MouseButton.LeftButton and 
-            event.modifiers() & Qt.KeyboardModifier.AltModifier):
-            self.is_panning = True
-            self.last_mouse_pos = event.pos()
-            self.setCursor(Qt.CursorShape.ClosedHandCursor)
-            event.accept()
+        # Only allow interaction with items when zoom is above threshold
+        if self.zoom_factor >= 0.4 or not isinstance(item, DraggableProxyWidget):
+            if event.button() == Qt.MouseButton.MiddleButton or \
+               (event.button() == Qt.MouseButton.LeftButton and 
+                event.modifiers() & Qt.KeyboardModifier.AltModifier):
+                self.is_panning = True
+                self.last_mouse_pos = event.pos()
+                self.setCursor(Qt.CursorShape.ClosedHandCursor)
+                event.accept()
+            else:
+                super().mousePressEvent(event)
         else:
-            super().mousePressEvent(event)
+            # If zoom is too low, only allow panning
+            if event.button() == Qt.MouseButton.MiddleButton or \
+               (event.button() == Qt.MouseButton.LeftButton and 
+                event.modifiers() & Qt.KeyboardModifier.AltModifier):
+                self.is_panning = True
+                self.last_mouse_pos = event.pos()
+                self.setCursor(Qt.CursorShape.ClosedHandCursor)
+            event.accept()
     
     def mouseReleaseEvent(self, event):
         if self.is_panning:

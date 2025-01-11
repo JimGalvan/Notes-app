@@ -35,12 +35,32 @@ class MainWindow(QMainWindow):
         # Create toolbar
         toolbar = QHBoxLayout()
         
+        # Search container
+        search_container = QHBoxLayout()
+        search_container.setSpacing(0)
+        
         # Search bar
         self.search_bar = QLineEdit()
         self.search_bar.setPlaceholderText('Search notes...')
         self.search_bar.setMinimumHeight(40)
         self.search_bar.textChanged.connect(self.trigger_search)
-        toolbar.addWidget(self.search_bar)
+        search_container.addWidget(self.search_bar)
+        
+        # Clear search button
+        clear_search_button = QPushButton("✕")
+        clear_search_button.setFixedWidth(40)
+        clear_search_button.setMinimumHeight(40)
+        clear_search_button.clicked.connect(lambda: self.search_bar.setText(""))
+        clear_search_button.setStyleSheet("""
+            QPushButton {
+                background-color: transparent;
+                border-top-left-radius: 0;
+                border-bottom-left-radius: 0;
+            }
+        """)
+        search_container.addWidget(clear_search_button)
+        
+        toolbar.addLayout(search_container, stretch=1)
         
         # Add note button
         add_button = QPushButton('New Note')
@@ -48,10 +68,40 @@ class MainWindow(QMainWindow):
         add_button.clicked.connect(self.add_note)
         toolbar.addWidget(add_button)
         
-        # Add zoom info
+        # Add zoom controls
+        zoom_container = QHBoxLayout()
+        zoom_container.setSpacing(5)
+        
+        # Reset zoom button
+        reset_zoom_button = QPushButton("Reset Zoom")
+        reset_zoom_button.setMinimumHeight(40)
+        reset_zoom_button.clicked.connect(self.reset_zoom)
+        zoom_container.addWidget(reset_zoom_button)
+        
+        # Zoom label
         self.zoom_label = QLabel("Zoom: 100%")
         self.zoom_label.setStyleSheet("color: #888888; margin-left: 10px;")
-        toolbar.addWidget(self.zoom_label)
+        zoom_container.addWidget(self.zoom_label)
+        
+        toolbar.addLayout(zoom_container)
+        
+        # Add organize buttons
+        organize_container = QHBoxLayout()
+        organize_container.setSpacing(5)
+        
+        # Snap to Grid button
+        snap_grid_button = QPushButton("Snap to Grid")
+        snap_grid_button.setMinimumHeight(40)
+        snap_grid_button.clicked.connect(self.snap_notes_to_grid)
+        organize_container.addWidget(snap_grid_button)
+        
+        # Arrange Notes button
+        arrange_button = QPushButton("Arrange Notes")
+        arrange_button.setMinimumHeight(40)
+        arrange_button.clicked.connect(self.arrange_notes)
+        organize_container.addWidget(arrange_button)
+        
+        toolbar.addLayout(organize_container)
         
         layout.addLayout(toolbar)
         
@@ -184,6 +234,9 @@ class MainWindow(QMainWindow):
     def add_note(self):
         self.add_note_widget()
     
+    def reset_zoom(self):
+        self.board.reset_zoom()
+    
     def update_note(self, note_id: int, title: str, content: str, color: str, text_size: int):
         # Get the note's current position
         if note_id in self.note_proxies:
@@ -229,6 +282,72 @@ class MainWindow(QMainWindow):
         
         self.db.close()
         super().closeEvent(event)
+    
+    def snap_notes_to_grid(self):
+        grid_size = 100  # Same as the grid size in BoardView
+        for proxy in self.note_proxies.values():
+            current_pos = proxy.pos()
+            # Round to nearest grid point
+            new_x = round(current_pos.x() / grid_size) * grid_size
+            new_y = round(current_pos.y() / grid_size) * grid_size
+            proxy.setPos(new_x, new_y)
+            
+            # Update position in database
+            note_widget = proxy.widget()
+            if note_widget and note_widget.note_id:
+                self.note_ops.update_note(
+                    note_widget.note_id,
+                    "",
+                    note_widget.content_edit.toPlainText(),
+                    color=note_widget.color,
+                    position_x=new_x,
+                    position_y=new_y,
+                    text_size=note_widget.text_size
+                )
+    
+    def arrange_notes(self):
+        if not self.note_proxies:
+            return
+            
+        # Get the viewport center
+        viewport_center = self.board.mapToScene(self.board.viewport().rect().center())
+        
+        # Calculate grid dimensions
+        note_count = len(self.note_proxies)
+        grid_cols = max(2, int((note_count ** 0.5) // 1))  # Square root rounded down
+        grid_rows = (note_count + grid_cols - 1) // grid_cols  # Ceiling division
+        
+        # Calculate starting position
+        start_x = viewport_center.x() - (grid_cols * 400) / 2  # 400 = note width + spacing
+        start_y = viewport_center.y() - (grid_rows * 300) / 2  # 300 = note height + spacing
+        
+        # Arrange notes in a grid
+        col, row = 0, 0
+        for proxy in self.note_proxies.values():
+            new_x = start_x + col * 400
+            new_y = start_y + row * 300
+            
+            # Animate the movement
+            proxy.setPos(new_x, new_y)
+            
+            # Update position in database
+            note_widget = proxy.widget()
+            if note_widget and note_widget.note_id:
+                self.note_ops.update_note(
+                    note_widget.note_id,
+                    "",
+                    note_widget.content_edit.toPlainText(),
+                    color=note_widget.color,
+                    position_x=new_x,
+                    position_y=new_y,
+                    text_size=note_widget.text_size
+                )
+            
+            # Move to next position
+            col += 1
+            if col >= grid_cols:
+                col = 0
+                row += 1
 
 def main():
     app = QApplication(sys.argv)
