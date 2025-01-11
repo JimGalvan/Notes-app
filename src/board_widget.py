@@ -315,3 +315,32 @@ class BoardView(QGraphicsView):
         self.scene.addItem(proxy)
         proxy.setPos(pos)
         return proxy 
+    
+    def get_viewport_state(self):
+        """Get the current viewport state including position and zoom."""
+        center = self.mapToScene(self.viewport().rect().center())
+        return {
+            'center_x': center.x(),
+            'center_y': center.y(),
+            'zoom_factor': self.zoom_factor
+        }
+    
+    def restore_viewport_state(self, state):
+        """Restore the viewport to a saved state."""
+        if not state:
+            return
+            
+        # Restore zoom
+        if 'zoom_factor' in state:
+            reset_factor = state['zoom_factor'] / self.zoom_factor
+            self.scale(reset_factor, reset_factor)
+            self.zoom_factor = state['zoom_factor']
+            
+            # Update zoom label
+            if hasattr(self.parent(), 'zoom_label'):
+                zoom_percentage = int(self.zoom_factor * 100)
+                self.parent().zoom_label.setText(f"Zoom: {zoom_percentage}%")
+        
+        # Restore position
+        if 'center_x' in state and 'center_y' in state:
+            self.centerOn(state['center_x'], state['center_y']) 

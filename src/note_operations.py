@@ -2,6 +2,17 @@ from sqlalchemy.orm import Session
 from models import Note, Tag
 from typing import List, Optional
 from datetime import datetime
+from sqlalchemy import create_engine, Column, Integer, String, Float, JSON
+from sqlalchemy.ext.declarative import declarative_base
+import json
+
+Base = declarative_base()
+
+class ViewportState(Base):
+    __tablename__ = 'viewport_state'
+    
+    id = Column(Integer, primary_key=True)
+    state = Column(JSON, nullable=False, default=dict)
 
 class NoteOperations:
     def __init__(self, session: Session):
@@ -100,4 +111,19 @@ class NoteOperations:
         return False
     
     def get_tags(self) -> List[Tag]:
-        return self.session.query(Tag).all() 
+        return self.session.query(Tag).all()
+    
+    def save_viewport_state(self, state):
+        """Save the viewport state to the database."""
+        # Delete any existing state
+        self.session.query(ViewportState).delete()
+        
+        # Create new state
+        viewport_state = ViewportState(state=state)
+        self.session.add(viewport_state)
+        self.session.commit()
+    
+    def get_viewport_state(self):
+        """Get the saved viewport state from the database."""
+        viewport_state = self.session.query(ViewportState).first()
+        return viewport_state.state if viewport_state else None 

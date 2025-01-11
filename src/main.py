@@ -34,6 +34,12 @@ class MainWindow(QMainWindow):
         
         # Create toolbar
         toolbar = QHBoxLayout()
+        toolbar.setContentsMargins(10, 10, 10, 10)
+        
+        # Create a semi-transparent container for the toolbar
+        toolbar_container = QWidget()
+        toolbar_container.setObjectName("toolbarContainer")
+        toolbar_container.setLayout(toolbar)
         
         # Search container
         search_container = QHBoxLayout()
@@ -56,6 +62,11 @@ class MainWindow(QMainWindow):
                 background-color: transparent;
                 border-top-left-radius: 0;
                 border-bottom-left-radius: 0;
+                color: #888888;
+            }
+            QPushButton:hover {
+                background-color: rgba(255, 255, 255, 0.1);
+                color: #ffffff;
             }
         """)
         search_container.addWidget(clear_search_button)
@@ -103,7 +114,7 @@ class MainWindow(QMainWindow):
         
         toolbar.addLayout(organize_container)
         
-        layout.addLayout(toolbar)
+        layout.addWidget(toolbar_container)
         
         # Create board
         self.board = BoardView()
@@ -115,19 +126,25 @@ class MainWindow(QMainWindow):
                 background-color: #1e1e1e;
                 color: #ffffff;
             }
+            #toolbarContainer {
+                background-color: rgba(45, 45, 45, 0.7);
+                border-radius: 10px;
+                margin: 10px;
+            }
             QLineEdit {
                 padding: 8px;
-                border: 1px solid #333333;
+                border: 1px solid rgba(51, 51, 51, 0.8);
                 border-radius: 5px;
-                background-color: #2d2d2d;
+                background-color: rgba(45, 45, 45, 0.8);
                 color: #ffffff;
                 font-size: 14px;
             }
             QLineEdit:focus {
                 border: 1px solid #0078d4;
+                background-color: rgba(45, 45, 45, 0.95);
             }
             QPushButton {
-                background-color: #0078d4;
+                background-color: rgba(0, 120, 212, 0.8);
                 color: white;
                 border: none;
                 border-radius: 5px;
@@ -135,10 +152,10 @@ class MainWindow(QMainWindow):
                 font-size: 14px;
             }
             QPushButton:hover {
-                background-color: #1084d8;
+                background-color: rgba(16, 132, 216, 0.9);
             }
             QPushButton:pressed {
-                background-color: #006cbd;
+                background-color: rgba(0, 108, 189, 0.95);
             }
             QMessageBox {
                 background-color: #1e1e1e;
@@ -169,6 +186,10 @@ class MainWindow(QMainWindow):
         notes = self.note_ops.get_all_notes()
         for note in notes:
             self.add_note_widget(note)
+        
+        # Restore viewport state
+        viewport_state = self.note_ops.get_viewport_state()
+        self.board.restore_viewport_state(viewport_state)
     
     def add_note_widget(self, note: Note = None):
         if note is None:
@@ -264,6 +285,10 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, "Error", "Failed to delete note")
     
     def closeEvent(self, event):
+        # Save viewport state
+        viewport_state = self.board.get_viewport_state()
+        self.note_ops.save_viewport_state(viewport_state)
+        
         # Save all note positions and sizes before closing
         for note_id, proxy in self.note_proxies.items():
             pos = proxy.pos()

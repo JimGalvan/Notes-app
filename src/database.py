@@ -1,21 +1,22 @@
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from pathlib import Path
-from models import Base
+from models import Base as ModelsBase
+from note_operations import Base as OperationsBase
 
 class Database:
     def __init__(self):
-        self.db_path = Path.home() / '.notes_app' / 'notes.db'
-        self.db_path.parent.mkdir(parents=True, exist_ok=True)
+        self.engine = create_engine('sqlite:///notes.db')
         
-        self.engine = create_engine(f'sqlite:///{self.db_path}')
-        self.Session = sessionmaker(bind=self.engine)
+        # Create all tables
+        ModelsBase.metadata.create_all(self.engine)
+        OperationsBase.metadata.create_all(self.engine)
         
-        # Create tables if they don't exist
-        Base.metadata.create_all(self.engine)
+        # Create session
+        Session = sessionmaker(bind=self.engine)
+        self.session = Session()
     
     def get_session(self):
-        return self.Session()
+        return self.session
     
     def close(self):
-        self.engine.dispose() 
+        self.session.close() 
