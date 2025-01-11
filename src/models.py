@@ -26,6 +26,7 @@ class Note(Base):
     position_y = Column(Integer, nullable=True)  # For sticky note positioning
     width = Column(Integer, default=300)  # Default width
     height = Column(Integer, default=200)  # Default height
+    text_size = Column(Integer, default=14)  # Default font size
     
     tags = relationship('Tag', secondary=note_tags, back_populates='notes')
 

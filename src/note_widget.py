@@ -48,12 +48,16 @@ class DraggableHeader(QWidget):
 
 class NoteWidget(QWidget):
     deleted = pyqtSignal(int)  # Signal emitted when note is deleted
-    updated = pyqtSignal(int, str, str, str)  # Signal emitted when note is updated (id, title, content, color)
+    updated = pyqtSignal(int, str, str, str, int)  # Signal emitted when note is updated (id, title, content, color, text_size)
 
-    def __init__(self, note_id=None, title="", content="", color="#2d2d2d", parent=None):
+    def __init__(self, note_id=None, title="", content="", color="#2d2d2d", text_size=14, parent=None):
         super().__init__(parent)
         self.note_id = note_id
         self.search_text = ""
+        self.text_size = text_size
+        self.color = color
+        self.last_modified = None  # Will be set in initUI
+        self.content_edit = None   # Will be set in initUI
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground)
         self.initUI(title, content, color)
@@ -93,8 +97,9 @@ class NoteWidget(QWidget):
         # Add the container to the main layout
         layout.addWidget(self.content_container)
         
-        # Set the note color
+        # Set the note color and text size
         self.set_color(color)
+        self.update_text_size(self.text_size)
         
         self.setMinimumSize(300, 200)
         self.setSizePolicy(
@@ -107,6 +112,12 @@ class NoteWidget(QWidget):
     def highlight_search(self, search_text):
         self.search_text = search_text
         self.highlighter.set_search_text(search_text)
+    
+    def update_text_size(self, size):
+        self.text_size = size
+        if self.content_edit:  # Check if content_edit exists
+            self.content_edit.setStyleSheet(f"font-size: {size}px;")
+            self.note_modified()
     
     def show_menu(self):
         menu = QMenu(self)
@@ -128,6 +139,26 @@ class NoteWidget(QWidget):
             color_menu.addAction(action)
         
         menu.addMenu(color_menu)
+        
+        # Text size submenu
+        text_size_menu = QMenu("Text Size", self)
+        
+        # Decrease text size action
+        decrease_action = QAction("Decrease Size", self)
+        decrease_action.triggered.connect(lambda: self.update_text_size(max(8, self.text_size - 2)))
+        text_size_menu.addAction(decrease_action)
+        
+        # Reset text size action
+        reset_action = QAction("Reset Size (14px)", self)
+        reset_action.triggered.connect(lambda: self.update_text_size(14))
+        text_size_menu.addAction(reset_action)
+        
+        # Increase text size action
+        increase_action = QAction("Increase Size", self)
+        increase_action.triggered.connect(lambda: self.update_text_size(min(32, self.text_size + 2)))
+        text_size_menu.addAction(increase_action)
+        
+        menu.addMenu(text_size_menu)
         menu.addSeparator()
         
         # Delete action
@@ -149,7 +180,7 @@ class NoteWidget(QWidget):
                 border: none;
                 background: transparent;
                 color: #ffffff;
-                font-size: 14px;
+                font-size: {self.text_size}px;
                 selection-background-color: #264f78;
             }}
             QTextEdit::placeholder {{
@@ -185,13 +216,14 @@ class NoteWidget(QWidget):
         self.note_modified()
     
     def note_modified(self):
-        if self.note_id is not None:
+        if self.note_id is not None and hasattr(self, 'last_modified'):
             self.last_modified.setText(f"Last modified: {datetime.now().strftime('%H:%M:%S')}")
             self.updated.emit(
                 self.note_id,
                 "",  # Empty title since we removed it
                 self.content_edit.toPlainText(),
-                self.color
+                self.color,
+                self.text_size
             )
     
     def delete_note(self):

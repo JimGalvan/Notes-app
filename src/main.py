@@ -130,7 +130,8 @@ class MainWindow(QMainWindow):
             note_id=note.id,
             title=note.title,
             content=note.content,
-            color=note.color
+            color=note.color,
+            text_size=note.text_size
         )
         note_widget.updated.connect(self.update_note)
         note_widget.deleted.connect(self.delete_note)
@@ -183,13 +184,23 @@ class MainWindow(QMainWindow):
     def add_note(self):
         self.add_note_widget()
     
-    def update_note(self, note_id: int, title: str, content: str, color: str):
+    def update_note(self, note_id: int, title: str, content: str, color: str, text_size: int):
         # Get the note's current position
         if note_id in self.note_proxies:
             pos = self.note_proxies[note_id].pos()
-            self.note_ops.update_note(note_id, title, content, color=color, position_x=pos.x(), position_y=pos.y())
+            self.note_ops.update_note(
+                note_id, title, content,
+                color=color,
+                position_x=pos.x(),
+                position_y=pos.y(),
+                text_size=text_size
+            )
         else:
-            self.note_ops.update_note(note_id, title, content, color=color)
+            self.note_ops.update_note(
+                note_id, title, content,
+                color=color,
+                text_size=text_size
+            )
     
     def delete_note(self, note_id: int):
         if note_id in self.note_proxies:
